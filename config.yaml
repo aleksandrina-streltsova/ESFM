@@ -1,0 +1,27 @@
+seed: 42
+num_workers: 16
+epochs: 50
+devices: 4
+batch_size: 64
+wnb_entity: "fanny-lehmann-ethz-eth-zurich"
+wnb_project: "ESFM_cmip"
+dataset_config_path: dataset_config_ipsl2.yaml
+log_dir: /iopsstor/scratch/cscs/flehmann/SwissClim_aurora/checkpoints/esfmS_varagg_ipsl_allexp_energy_r1_lr5e-4_co2fourier_PTaur
+load_aurora_pretrain_weights: false
+load_custom_pretrain_weights_str: /capstor/store/cscs/swissai/ab016/ESFM_related/trained_models/ESFM_s_nm_ft/model_ckpt-step=53000-loss_train=0.07.ckpt
+data_sources:
+  - cmip_nc_ipsl_hist_energy
+str_architecture_size: small
+learning_rate: 5.0e-4
+lr_warmup_steps: 1000
+num_ensemble: 1
+mae_weight: 1.0
+loss_config_name: energy_v2
+stabilise_level_agg: true
+variable_aggregation: true
+axial_attention: true
+use_resolution_specific_patch_tokenizers: false
+disable_flashattention: false
+add_qk_norm_to_swin3d: true
+strategy: full_fsdp
+add_token_pos_embedding_in_decoder: false
