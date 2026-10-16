@@ -1,0 +1,31 @@
+batch_size: 1
+num_workers: 4
+epochs: 10
+devices: 4
+log_dir: "/iopsstor/scratch/cscs/flehmann/SwissClim_aurora/checkpoints/Aurora_small_hydro"
+load_aurora_pretrain_weights: true
+wnb_entity: "fanny-lehmann-ethz-eth-zurich"
+wnb_project: "ESFM_climate"
+dataset_config_path: "dataset_config.yaml"
+data_sources:
+  - era5_hydro_log_24h
+loss_config_name: "default"
+num_ensemble: 1
+mae_weight: 1.0
+mae_on_ensemble_mean: true
+kernel_crps_weight: 0.0
+almost_fair_crps_alpha: 0.95
+lead_time_h: 24
+str_architecture_size: "small"
+learning_rate: 0.0001
+stabilise_level_agg: true
+variable_aggregation: false
+axial_attention: false
+add_qk_norm_to_swin3d: false
+max_grad_norm: 1.0
+use_resolution_specific_patch_tokenizers: false
+absolute_time_embedding_in_minutes: false
+add_token_pos_embedding_in_decoder: false
+num_max_ensembles: 1
+load_dataset_stats: true
+prefetch_factor: 2
