@@ -784,6 +784,41 @@ era5_newvars_22to25:
             'tsr_6hr' : '/capstor/store/cscs/swissai/a122/ERA5_surface_accumulated_6hr.zarr',
         }
 
+
+era5_hydro_log_24h:
+    class: WeatherBench2Raw
+    batch_size: 1
+    co2_path: '/capstor/store/cscs/swissai/ab016/climate_forcings/global_annual_CO2.csv'
+    train_time_start: "1979-01-01T00:00:00.000000"
+    train_time_end: "2017-12-31T23:59:59.999999"
+    step_time_train: 3
+    val_time_start: "2018-01-01T00:00:00.000000"
+    val_time_end: "2018-12-31T23:59:59.999999"
+    step_time_val: 3
+    conf:
+        path: 'swissai/weatherbench/weatherbench2_original'
+        str_task: forecast
+        lead_time_h: 24
+        atmos_levels: [50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000]
+        surf_vars: [2t, 10u, 10v, msl, tp_6hr_log, tsr_6hr, ttr_6hr, pe_6hr, r_6hr_log, swvl_1, swvl_2, swvl_3]
+        atmos_vars: [z, u, v, t, q]
+        static_vars: [lsm, z, slt]
+        is_global_observation: true
+        resolution: [721, 1440]
+        grid_resolution: 0.25
+        extended_vars: [tp_6hr_log, tsr_6hr, ttr_6hr, pe_6hr, r_6hr_log, swvl_1, swvl_2, swvl_3]
+        extended_path: {
+            'tp_6hr_log' : '/capstor/store/cscs/swissai/weatherbench/ERA5_surface_accumulated_6hr.zarr',
+            'tsr_6hr' : '/capstor/store/cscs/swissai/weatherbench/ERA5_surface_accumulated_6hr.zarr',
+            'ttr_6hr' : '/capstor/store/cscs/swissai/weatherbench/ERA5_surface_accumulated_6hr.zarr',
+            'pe_6hr' : '/capstor/store/cscs/swissai/weatherbench/ERA5_surface_accumulated_6hr.zarr',
+            'r_6hr_log' : '/capstor/store/cscs/swissai/weatherbench/ERA5_surface_accumulated_6hr.zarr',
+            'swvl_1' : '/capstor/store/cscs/swissai/weatherbench/weatherbench2_additionalvariables.zarr',
+            'swvl_2' : '/capstor/store/cscs/swissai/weatherbench/weatherbench2_additionalvariables.zarr',
+            'swvl_3' : '/capstor/store/cscs/swissai/weatherbench/weatherbench2_additionalvariables.zarr',
+        }
+
+
 modis_14to20_tq:
     class: MODISDataset
     batch_size: 2

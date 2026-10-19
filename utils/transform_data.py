@@ -41,11 +41,3 @@ def accumulate_data(da, t_idx, all_ind, short_name, time2idx, lead_time_h=6):
     else:
         #print(f"in accumulate: {short_name}", da.isel(time=t_idx).time.values)
         return da.isel(time=t_idx).transpose('time', 'latitude', 'longitude').values
-    
-
-def accumulate_data_sel(ds, x_ind, short_name, lead_time_h=6):
-    if np.isin(short_name, ["tp_mswep", "tp", "tp_mswep_log", "tp_log", "pe", "e", "r", "r_log"]):
-        start = x_ind - np.timedelta64(lead_time_h-1, 'h')
-        return ds[short_name].sel(time=slice(start, x_ind)).sum(dim='time').values
-    else:
-        return ds[short_name].sel(time=x_ind).values
