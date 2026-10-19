@@ -1,27 +1,35 @@
 seed: 42
-num_workers: 16
-epochs: 50
-devices: 4
-batch_size: 64
-wnb_entity: "fanny-lehmann-ethz-eth-zurich"
-wnb_project: "ESFM_cmip"
-dataset_config_path: dataset_config_ipsl2.yaml
-log_dir: /iopsstor/scratch/cscs/flehmann/SwissClim_aurora/checkpoints/esfmS_varagg_ipsl_allexp_energy_r1_lr5e-4_co2fourier_PTaur
+num_workers: 4  # increase in case of low GPU utilisation
+epochs: 10
+devices: 4      # number of GPUs per node; num_processes = devices x num_nodes
+batch_size: 1   # global batch size defines how often weights are updated; global: batch_size x devices x num_nodes
+                # batch_size is actually set in dataset config
+wnb_entity: "astreltsova-ethz"
+wnb_project: "ESFM_GHM"
+dataset_config_path: "dataset_config.yaml"
+log_dir: /iopsstor/scratch/cscs/astreltsova/checkpoints/esfmS_varagg_era5_hydro_log_24h_lr1e-4_PTESFM_s_nm_ft
 load_aurora_pretrain_weights: false
 load_custom_pretrain_weights_str: /capstor/store/cscs/swissai/ab016/ESFM_related/trained_models/ESFM_s_nm_ft/model_ckpt-step=53000-loss_train=0.07.ckpt
 data_sources:
-  - cmip_nc_ipsl_hist_energy
+  - era5_hydro_log_24h
 str_architecture_size: small
-learning_rate: 5.0e-4
+learning_rate: 0.0001
 lr_warmup_steps: 1000
 num_ensemble: 1
 mae_weight: 1.0
-loss_config_name: energy_v2
+loss_config_name: default
+mae_on_ensemble_mean: true
 stabilise_level_agg: true
 variable_aggregation: true
-axial_attention: true
 use_resolution_specific_patch_tokenizers: false
 disable_flashattention: false
-add_qk_norm_to_swin3d: true
-strategy: full_fsdp
+add_qk_norm_to_swin3d: true  # LayerNorms added inside every attention block of the Swin backbone
+kernel_crps_weight: 0.0      # with num_ensemble: 1 would quietly fill the weights with NaN, unless kill_on_nan_detection: true.
+almost_fair_crps_alpha: 1.0  # when kernel_crps_weight: 0, CRPS is switched off
+max_grad_norm: 1.0
+absolute_time_embedding_in_minutes: false
+strategy: full_fsdp          # 'full_fsdp' or 'ddp'; only used if >1 GPU is visible
 add_token_pos_embedding_in_decoder: false
+num_max_ensembles: 1000
+load_dataset_stats: true
+prefetch_factor: 2
