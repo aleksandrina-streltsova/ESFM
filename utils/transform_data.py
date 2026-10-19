@@ -1,9 +1,13 @@
+import dataclasses
+
 import torch
-import numpy as np  
+import numpy as np
+
+LOG_VARS = ("tp_log", "tp_6hr_log", "tp_mswep_log", "r_log", "r_6hr_log") # surface vars stored as log(1 + x/eps)
 
 
 def transform_data(data, short_name, eps=1e-5, direct=True): # transformation follows [Rasp 2020], also used in FourCastNet
-    if np.isin(short_name, ["tp_log", "tp_6hr_log", "tp_mswep_log", "r_log", "r_6hr_log"]):
+    if np.isin(short_name, LOG_VARS):
         if direct:
             if isinstance(data, torch.Tensor):
                 return torch.log(1 + data/eps)
@@ -17,6 +21,14 @@ def transform_data(data, short_name, eps=1e-5, direct=True): # transformation fo
         
     else:
         return data
+
+
+def inverse_transform_log_vars(batch):
+    ''' Return a copy of a prediction Batch with LOG_VARS mapped back to physical units; other vars are untouched '''
+    return dataclasses.replace(batch, surf_vars={
+        k: transform_data(v, k, direct=False) if k in LOG_VARS else v
+        for k, v in batch.surf_vars.items()
+    })
 
 
 def accumulate_data(da, t_idx, all_ind, short_name, time2idx, lead_time_h=6):
