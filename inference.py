@@ -201,7 +201,8 @@ def load_data(yaml_path, datasets_type):
                     ind_val_end = yml_file[dataset_type]['val_time_end']
                     start_time_val = _parse_time(ind_val_start)
                     end_time_val = _parse_time(ind_val_end)
-                    inds_val_ = [np.datetime64(start_time_val + timedelta(hours=i)) for i in range(int((end_time_val - start_time_val).total_seconds() // 3600) + 1)]
+                    step_val = yml_file[dataset_type].get('step_time_val', 1)
+                    inds_val_ = [np.datetime64(start_time_val + timedelta(hours=i)) for i in range(0, int((end_time_val - start_time_val).total_seconds() // 3600) + 1, step_val)]
                     if use_inds_subset:
                         inds_val_ = validation_utils.get_every_nth_index(inds_val_, n=6, shift_n_every_m=3)
                     conf_infer['inds'] = inds_val_

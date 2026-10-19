@@ -195,7 +195,8 @@ def load_data(yaml_path, datasets_type, yaml_masking_path):
                     ind_train_end = yml_file[dataset_type]['train_time_end']
                     start_time_train = datetime.strptime(ind_train_start, _TIME_FMT)
                     end_time_train = datetime.strptime(ind_train_end, _TIME_FMT)
-                    inds_train_ = [np.datetime64(start_time_train + timedelta(hours=i)) for i in range(int((end_time_train - start_time_train).total_seconds() // 3600) + 1)]
+                    step_train = yml_file[dataset_type].get('step_time_train', 1)
+                    inds_train_ = [np.datetime64(start_time_train + timedelta(hours=i)) for i in range(0, int((end_time_train - start_time_train).total_seconds() // 3600) + 1, step_train)]
                     if yml_file[dataset_type].get('skip_interval_start', None) is not None and yml_file[dataset_type].get('skip_interval_end', None) is not None:
                         ind_skip_start = yml_file[dataset_type]['skip_interval_start']
                         ind_skip_end = yml_file[dataset_type]['skip_interval_end']
@@ -212,7 +213,8 @@ def load_data(yaml_path, datasets_type, yaml_masking_path):
                     ind_val_end = yml_file[dataset_type]['val_time_end']
                     start_time_val = datetime.strptime(ind_val_start, _TIME_FMT)
                     end_time_val = datetime.strptime(ind_val_end, _TIME_FMT)
-                    inds_val_ = [np.datetime64(start_time_val + timedelta(hours=i)) for i in range(int((end_time_val - start_time_val).total_seconds() // 3600) + 1)]
+                    step_val = yml_file[dataset_type].get('step_time_val', 1)
+                    inds_val_ = [np.datetime64(start_time_val + timedelta(hours=i)) for i in range(0, int((end_time_val - start_time_val).total_seconds() // 3600) + 1, step_val)]
                     conf_val['inds'] = inds_val_
                 else:
                     conf_val['inds'] = inds_val
