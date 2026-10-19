@@ -21,6 +21,17 @@ __all__ = [
 ]
 
 
+def lead_time_stats_name(name: str, lead_time_h: int) -> str:
+    """Stats entry to use for `name` at this lead time."""
+    if lead_time_h == 6:
+        return name
+    if "_6hr" in name:
+        return name.replace("_6hr", f"_{lead_time_h}hr")
+    if "mswep" in name:
+        return name.replace("mswep", f"mswep_{lead_time_h}hr")
+    return name
+
+
 def normalise_surf_var(
     x: torch.Tensor,
     name: str,
@@ -28,13 +39,15 @@ def normalise_surf_var(
     scales: dict,
     stats: Optional[dict[str, tuple[float, float]]] = None,
     unnormalise: bool = False,
+    lead_time_h: int = 6,
 ) -> torch.Tensor:
     """Normalise a surface-level variable."""
     if stats and name in stats:
         location, scale = stats[name]
     else:
-        location = locations[name]
-        scale = scales[name]
+        stats_name = lead_time_stats_name(name, lead_time_h)
+        location = locations[stats_name]
+        scale = scales[stats_name]
     if unnormalise:
         return x * scale + location
     else:
