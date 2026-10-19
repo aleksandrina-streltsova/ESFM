@@ -22,7 +22,7 @@ from torch.utils.data import Dataset, DataLoader, Subset
 from torchdata.stateful_dataloader import StatefulDataLoader
 
 from esfm.normalisation import load_normalization_stats
-from utils.transform_data import transform_data, accumulate_data, LOG_VARS
+from utils.transform_data import transform_data, accumulate_data, accumulation_offsets_h, is_transformed_var
 
 d_srf_abr2full = {"2t": "2m_temperature", 
                   "10u": "10m_u_component_of_wind", 
@@ -114,8 +114,8 @@ d_atmos_full2abr = {v: k for k, v in d_atmos_abr2full.items()}
 
 
 def srf_pred_full_name(short_name):
-    """Full name for a saved surface prediction. LOG_VARS are saved after inverse_transform_log_vars, so they take their non-log name."""
-    if short_name in LOG_VARS:
+    """Full name for a saved surface prediction. *_log vars are saved after inverse_transform_vars, so they take their non-log name."""
+    if is_transformed_var(short_name):
         short_name = short_name[:-len('_log')]
     return d_srf_abr2full.get(short_name, short_name)
 
@@ -322,12 +322,11 @@ class WeatherBench2Raw(Dataset):
             for k in surf_vars:
                 if d_srf_abr2full[k] in self.ds.data_vars:
                     self.surf_vars[k] = self.ds[d_srf_abr2full[k]]
-                elif '_log' in d_srf_abr2full[k]:
+                elif '_log' in d_srf_abr2full[k] and d_srf_abr2full[k].replace('_log', '') in self.ds.data_vars:
                     full_name_ = d_srf_abr2full[k].replace('_log', '')
-                    if full_name_ in self.ds.data_vars:
-                        self.surf_vars[k] = self.ds[full_name_]
-                        print(f'Using {full_name_} instead of {d_srf_abr2full[k]} from ds for dataset.')
-                else:
+                    self.surf_vars[k] = self.ds[full_name_]
+                    print(f'Using {full_name_} instead of {d_srf_abr2full[k]} from ds for dataset.')
+                else: # e.g. *_6hr_log vars that only exist in an extended dataset
                     if k != 'co2':
                         self.surf_vars[k] = self.dict_ds_extended[d_srf_abr2full[k]]
 
@@ -345,6 +344,17 @@ class WeatherBench2Raw(Dataset):
             self.dict_vars['atmos_vars'] = tuple([d_atmos_abr2full[k] for k in atmos_vars])
         else:
             self.atmos_vars = {d_atmos_full2abr[var]: self.ds[var] for var in self.dict_vars['atmos_vars']}
+
+        # timestamp → position map (built once per worker), needed by _prepare_inds_for_forecast
+        times_ns = self.ds.time.values.astype("datetime64[ns]")
+        self._time2idx = {int(t): idx for idx, t in enumerate(times_ns)}
+        self._time2idx_extended = dict()
+        for var in self.dict_vars['surf_vars']:
+            if var not in self.ds.data_vars and var in self.dict_ds_extended:
+                ds_ext = self.dict_ds_extended[var]
+                times_ns_ext = ds_ext.time.values.astype("datetime64[ns]")
+                self._time2idx_extended[var] = {int(t): idx for idx, t in enumerate(times_ns_ext)}
+
         if self.str_task == '6h-forecast':
             self._prepare_inds_for_forecast(lead_time_h=6) ## assumes only forecast task for the dataloader (overwrites length of dataset obj.)
         elif self.str_task == 'forecast' and lead_time_h != 0:
@@ -356,16 +366,6 @@ class WeatherBench2Raw(Dataset):
                                   lead_time_h = self.lead_time_h,
                                   inds = self.inds
                                   )
-        
-        # timestamp → position map (built once per worker) 
-        times_ns = self.ds.time.values.astype("datetime64[ns]")
-        self._time2idx = {int(t): idx for idx, t in enumerate(times_ns)}
-        self._time2idx_extended = dict()
-        for var in self.dict_vars['surf_vars']:
-            if var not in self.ds.data_vars and var in self.dict_ds_extended:
-                ds_ext = self.dict_ds_extended[var]
-                times_ns_ext = ds_ext.time.values.astype("datetime64[ns]")
-                self._time2idx_extended[var] = {int(t): idx for idx, t in enumerate(times_ns_ext)}
 
         # static variables (cache once)
         self._static_cache = {
@@ -400,14 +400,25 @@ class WeatherBench2Raw(Dataset):
         
         # If cache doesn't exist or is invalid, compute from scratch
         # Compute the indices
-        x_t1 = self.inds
+        x_t1 = np.asarray(self.inds)
         x_t0 = x_t1 - np.timedelta64(lead_time_h, 'h')
         y_t = x_t1 + np.timedelta64(lead_time_h, 'h')
-        l_pairs = []
-        for i in range(len(x_t1)):
-            if x_t0[i] in self.ds.time and x_t1[i] in self.ds.time and y_t[i] in self.ds.time:
-                l_pairs.append((x_t0[i], x_t1[i], y_t[i]))
-        pairs = tuple(l_pairs)
+        
+        ## hours before x_t0, x_t1, y_t that each var reads: 0, or the times accumulate_data sums over
+        required = {var: [0] for var in self.dict_vars['atmos_vars']}
+        for abr in self.surf_vars:
+            required[d_srf_abr2full[abr]] = accumulation_offsets_h(abr, lead_time_h)
+
+        keep = np.ones(len(x_t1), dtype=bool)
+        for var, offsets in required.items():
+            time2idx = self._time2idx_extended.get(var, self._time2idx) # same timestamp → position map as in _get_forecast
+            available = np.fromiter(time2idx.keys(), dtype="datetime64[ns]") # keys are ns since epoch
+            for t, offset in itertools.product((x_t0, x_t1, y_t), offsets):
+                keep &= np.isin(t - np.timedelta64(offset, 'h'), available)
+        if not keep.all():
+            print(f"[{self.name}] dropped {(~keep).sum()}/{len(keep)} samples with timestamps missing from the dataset")
+        
+        pairs = tuple(zip(x_t0[keep], x_t1[keep], y_t[keep]))
         ind_pair_key = f"{lead_time_h}h_forecast"
         self.d_ind_pairs[ind_pair_key] = pairs
         self.len_dataobj = len(pairs)
@@ -482,7 +493,7 @@ class WeatherBench2Raw(Dataset):
                                                       t_idx=t_idx_surf[abr],
                                                       all_ind=[x_ind0, x_ind1, y_ind],
                                                       short_name=abr, 
-                                                      time2idx=self._time2idx_extended.get(d_srf_abr2full[abr], self._time2idx),
+                                                      time2idx=getattr(self, '_time2idx_extended', {}).get(d_srf_abr2full[abr], self._time2idx), # WeatherBench2Multi has no extended maps
                                                       lead_time_h=lead_time_h), abr))
             for abr in surf_abr_list_without_co2
         ])  # shape: (N_vars, 3, H, W)
@@ -2563,12 +2574,8 @@ class MODISDataset(WeatherBench2Raw):
             self.dict_vars['atmos_vars'] = tuple([d_atmos_abr2full[k] for k in atmos_vars])
         else:
             self.atmos_vars = {d_atmos_full2abr[var]: self.ds[var] for var in self.dict_vars['atmos_vars']}
-        if self.str_task == '6h-forecast':
-            self._prepare_inds_for_forecast(lead_time_h=6) ## assumes only forecast task for the dataloader (overwrites length of dataset obj.)
-        elif self.str_task == 'forecast' and lead_time_h != 0:
-            self._prepare_inds_for_forecast(lead_time_h=lead_time_h) ## assumes only forecast task for the dataloader (overwrites length of dataset obj.)
         
-        # timestamp → position map (built once per worker) 
+        # timestamp → position map (built once per worker), needed by _prepare_inds_for_forecast
         times_ns = self.ds.time.values.astype("datetime64[ns]")
         self._time2idx = {int(t): idx for idx, t in enumerate(times_ns)}
         self._time2idx_extended = dict()
@@ -2582,6 +2589,11 @@ class MODISDataset(WeatherBench2Raw):
                 ds_ext = self.dict_ds_extended[var]
                 times_ns_ext = ds_ext.time.values.astype("datetime64[ns]")
                 self._time2idx_extended[var] = {int(t): idx for idx, t in enumerate(times_ns_ext)}
+
+        if self.str_task == '6h-forecast':
+            self._prepare_inds_for_forecast(lead_time_h=6) ## assumes only forecast task for the dataloader (overwrites length of dataset obj.)
+        elif self.str_task == 'forecast' and lead_time_h != 0:
+            self._prepare_inds_for_forecast(lead_time_h=lead_time_h) ## assumes only forecast task for the dataloader (overwrites length of dataset obj.)
 
         # static variables (cache once)
         self._static_cache = {

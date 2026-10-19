@@ -62,7 +62,7 @@ from esfm import ESFM, Batch, Metadata, rollout
 # Import custom modules
 from utils import dataset, validation_utils
 from utils.validation_utils import merge_prediction_files_and_copy_to_capstor
-from utils.transform_data import inverse_transform_log_vars
+from utils.transform_data import inverse_transform_vars
 
 # Add environment variables for memory management
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True,garbage_collection_threshold:0.8'
@@ -514,7 +514,7 @@ def main():
             # Iterate through rollout steps - write each to separate file
             for step_idx, batch_ens in enumerate(rollout_gen):
                 # *_log vars back to physical units before saving; returns a copy, so rollout keeps feeding back log-space values
-                batch_ens = inverse_transform_log_vars(batch_ens)
+                batch_ens = inverse_transform_vars(batch_ens)
                 curr_lead_time_hours = (step_idx + 1) * leadtime_hours  # Each step is 6 hours: 6, 12, 18, ...
                 
                 # Save metadata on first step

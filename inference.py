@@ -50,7 +50,7 @@ sys.argv = [sys.argv[0]] + remaining
 from config import parse_args
 from utils import dataset, validation_utils
 from utils.validation_utils import merge_prediction_files_and_copy_to_capstor
-from utils.transform_data import inverse_transform_log_vars
+from utils.transform_data import inverse_transform_vars
 
 # Add environment variables for memory management
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True,garbage_collection_threshold:0.8'
@@ -487,7 +487,7 @@ def main():
                         batch_obj_x.atmos_vars[k][:,:,:, inds_lat_mask, inds_lon_mask] = torch.nan
             
             _, _, batch_ens = self.net.forward(batch_obj_x)
-            batch_ens = inverse_transform_log_vars(batch_ens)  # *_log vars back to physical units before saving
+            batch_ens = inverse_transform_vars(batch_ens)  # *_log vars back to physical units before saving
             
             # Helper function to safely convert to numpy
             def to_numpy(x):
