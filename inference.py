@@ -50,6 +50,7 @@ sys.argv = [sys.argv[0]] + remaining
 from config import parse_args
 from utils import dataset, validation_utils
 from utils.validation_utils import merge_prediction_files_and_copy_to_capstor
+from utils.transform_data import inverse_transform_log_vars
 
 # Add environment variables for memory management
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True,garbage_collection_threshold:0.8'
@@ -485,6 +486,7 @@ def main():
                         batch_obj_x.atmos_vars[k][:,:,:, inds_lat_mask, inds_lon_mask] = torch.nan
             
             _, _, batch_ens = self.net.forward(batch_obj_x)
+            batch_ens = inverse_transform_log_vars(batch_ens)  # *_log vars back to physical units before saving
             
             # Helper function to safely convert to numpy
             def to_numpy(x):
@@ -522,7 +524,7 @@ def main():
                 
                 for var_type, var_key in zip(var_types, var_keys):
                     if var_type == 'surf_var' and var_key in batch_ens.surf_vars:
-                        full_name = dataset.d_srf_abr2full.get(var_key, var_key)
+                        full_name = dataset.srf_pred_full_name(var_key)
                         predictions[full_name] = batch_ens.surf_vars[var_key].squeeze(2).detach().cpu().numpy()
                     elif var_type == 'atmos_var' and var_key in batch_ens.atmos_vars:
                         full_name = dataset.d_atmos_abr2full.get(var_key, var_key)
@@ -538,7 +540,7 @@ def main():
             else:
                 # Save all variables (default behavior for no masking or region masking)
                 for var_name, pred in batch_ens.surf_vars.items():
-                    full_name = dataset.d_srf_abr2full.get(var_name, var_name)
+                    full_name = dataset.srf_pred_full_name(var_name)
                     predictions[full_name] = pred.squeeze(2).detach().cpu().numpy()
                 
                 for var_name, pred in batch_ens.atmos_vars.items():

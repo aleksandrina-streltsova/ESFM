@@ -22,7 +22,7 @@ from torch.utils.data import Dataset, DataLoader, Subset
 from torchdata.stateful_dataloader import StatefulDataLoader
 
 from esfm.normalisation import load_normalization_stats
-
+from utils.transform_data import transform_data, accumulate_data, LOG_VARS
 
 d_srf_abr2full = {"2t": "2m_temperature", 
                   "10u": "10m_u_component_of_wind", 
@@ -111,6 +111,13 @@ d_atmos_abr2full = {"z": "geopotential",
 d_srf_full2abr = {v: k for k, v in d_srf_abr2full.items()}
 d_static_full2abr = {v: k for k, v in d_static_abr2full.items()}
 d_atmos_full2abr = {v: k for k, v in d_atmos_abr2full.items()}
+
+
+def srf_pred_full_name(short_name):
+    """Full name for a saved surface prediction. LOG_VARS are saved after inverse_transform_log_vars, so they take their non-log name."""
+    if short_name in LOG_VARS:
+        short_name = short_name[:-len('_log')]
+    return d_srf_abr2full.get(short_name, short_name)
 
 def _merge_time_ordered(ds_list: list, use_dask_chunks: bool = True):
     """Merge a list of time-ordered DataArrays/Datasets along time axis.
@@ -469,8 +476,14 @@ class WeatherBench2Raw(Dataset):
             t_idx_surf = {abr: t_idx for abr in surf_abr_list_without_co2}
         
         # Load all surface variables in one operation
+        # NB: the *_log transform happens only here (and in subclasses that inherit _get_forecast); MODISDataset, StationGridNPZ and CMIP6ClimaXDataset don't apply it
         surf_data = np.stack([
-            np.asarray(self.surf_vars[abr].isel(time=t_idx_surf[abr]).data)
+            np.asarray(transform_data(accumulate_data(da=self.surf_vars[abr],
+                                                      t_idx=t_idx_surf[abr],
+                                                      all_ind=[x_ind0, x_ind1, y_ind],
+                                                      short_name=abr, 
+                                                      time2idx=self._time2idx_extended.get(d_srf_abr2full[abr], self._time2idx),
+                                                      lead_time_h=lead_time_h), abr))
             for abr in surf_abr_list_without_co2
         ])  # shape: (N_vars, 3, H, W)
 

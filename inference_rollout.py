@@ -62,6 +62,7 @@ from esfm import ESFM, Batch, Metadata, rollout
 # Import custom modules
 from utils import dataset, validation_utils
 from utils.validation_utils import merge_prediction_files_and_copy_to_capstor
+from utils.transform_data import inverse_transform_log_vars
 
 # Add environment variables for memory management
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True,garbage_collection_threshold:0.8'
@@ -512,6 +513,8 @@ def main():
             
             # Iterate through rollout steps - write each to separate file
             for step_idx, batch_ens in enumerate(rollout_gen):
+                # *_log vars back to physical units before saving; returns a copy, so rollout keeps feeding back log-space values
+                batch_ens = inverse_transform_log_vars(batch_ens)
                 curr_lead_time_hours = (step_idx + 1) * leadtime_hours  # Each step is 6 hours: 6, 12, 18, ...
                 
                 # Save metadata on first step
@@ -638,7 +641,7 @@ def main():
                 
                 for var_type, var_key in zip(var_types, var_keys):
                     if var_type == 'surf_var' and var_key in predictions:
-                        full_name = dataset.d_srf_abr2full.get(var_key, var_key)
+                        full_name = dataset.srf_pred_full_name(var_key)
                         # Already in correct shape: [bs, lead_time, ens, lat, lon]
                         final_predictions[full_name] = predictions[var_key]
                     elif var_type == 'atmos_var' and var_key in predictions:
@@ -661,7 +664,7 @@ def main():
                 for var_name in predictions.keys():
                     if var_name not in ['init_time', 'latitude', 'longitude', 'level', 'ensemble', 'lead_time']:
                         if predictions[var_name].ndim == 5:  # Surface var: [bs, lead_time, ens, lat, lon]
-                            full_name = dataset.d_srf_abr2full.get(var_name, var_name)
+                            full_name = dataset.srf_pred_full_name(var_name)
                             final_predictions[full_name] = predictions[var_name]
                         else:  # Atmos var: [bs, lead_time, ens, plev, lat, lon]
                             full_name = dataset.d_atmos_abr2full.get(var_name, var_name)
