@@ -145,9 +145,10 @@ class Batch:
         locations = self.metadata.locations
         scales = self.metadata.scales
         atmos_levels = self.metadata.atmos_levels
+        lead_time_h = round(float(self.metadata.lead_time_seconds) / 3600)  # accumulated vars have per-lead-time stats
         return Batch(
             surf_vars={
-                k: normalise_surf_var(v, k, locations=locations, scales=scales, stats=surf_stats) 
+                k: normalise_surf_var(v, k, locations=locations, scales=scales, stats=surf_stats, lead_time_h=lead_time_h)
                 for k, v in self.surf_vars.items()
             },
             static_vars={
@@ -175,9 +176,10 @@ class Batch:
         scales = self.metadata.scales
         if atmos_levels is None:
             atmos_levels = self.metadata.atmos_levels
+        lead_time_h = round(float(self.metadata.lead_time_seconds) / 3600)  # accumulated vars have per-lead-time stats
         return Batch(
             surf_vars={
-                k: unnormalise_surf_var(v, k, locations=locations, scales=scales, stats=surf_stats) 
+                k: unnormalise_surf_var(v, k, locations=locations, scales=scales, stats=surf_stats, lead_time_h=lead_time_h)
                 for k, v in self.surf_vars.items()
             },
             static_vars={

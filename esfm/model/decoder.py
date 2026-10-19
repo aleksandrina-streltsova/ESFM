@@ -299,6 +299,7 @@ class Perceiver3DDecoder(nn.Module):
                 atmos_vars_output=atmos_vars_output,
                 surf_vars_output=surf_vars_output,
                 atmos_levels_output=atmos_levels_output,
+                lead_time_seconds=batch.metadata.lead_time_seconds,
             ),
         )
 
