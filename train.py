@@ -881,7 +881,7 @@ def main():
     modelcheckpoint_callback_regular_step_save = ModelCheckpoint(
         dirpath=args.log_dir, 
         filename="model_ckpt-{step}-{loss_train:.2f}", 
-        every_n_train_steps=100, 
+        every_n_train_steps=args.ckpt_every_n_train_steps,
         save_last=True,
         save_top_k = -1, ## save all ckpts.
     )
