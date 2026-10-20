@@ -3,6 +3,7 @@
 # Licensed under the MIT License. See the LICENSE file in the repository root.
 
 import logging
+import dataclasses
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 import os
 import glob
@@ -162,6 +163,23 @@ def _make_batch(batch_dict, *, normalize_target: bool = True):
 # # Define collate functions for training and validation
 collate_fn_train = lambda samples: _make_batch(torch.utils.data.default_collate(samples), normalize_target=True)
 collate_fn_val   = lambda samples: _make_batch(torch.utils.data.default_collate(samples), normalize_target=False)
+
+
+def normalised_loss_inputs(batch_pred, batch_std, batch_ens, batch_y):
+    """(mean, std, ensemble, target) for loss_fn, normalised as during training, from eval-mode (unnormalised) outputs and target"""
+    batch_std = dataclasses.replace(
+        batch_std,
+        metadata=dataclasses.replace(
+            batch_std.metadata,
+            locations={k: 0 for k in batch_std.metadata.locations}, # a spread is only divided by the scale
+        ),
+    )
+    return (
+        batch_pred.normalise(surf_stats=None),
+        batch_std.normalise(surf_stats=None),
+        batch_ens.normalise(surf_stats=None),
+        batch_y.normalise(surf_stats=None), # as in collate_fn_train
+    )
 
 
 def load_data(yaml_path, datasets_type, yaml_masking_path):
@@ -719,8 +737,10 @@ def main():
             
             # Main task loss
             task_loss, loss_dict = self.loss_fn(batch_pred, batch_std, batch_ens, batch_obj_y, latitude_weight_enabled=latitude_weight_enabled)
+            # same loss on normalised values as loss_train, so variables in different units are comparable; selects the best checkpoints
+            norm_loss, norm_loss_dict = self.loss_fn(*normalised_loss_inputs(batch_pred, batch_std, batch_ens, batch_obj_y), latitude_weight_enabled=latitude_weight_enabled)
             del batch_std, batch_ens
-            
+
             total_loss = task_loss
 
             del batch_pred,batch_obj_y
@@ -729,6 +749,9 @@ def main():
             loss_dict = {f'{key}_val': value for key, value in loss_dict.items()}
             loss_dict['loss_val'] = total_loss.detach().item()
             self.log_dict(loss_dict, batch_size=self.batch_size, sync_dist=True, prog_bar=True)
+            norm_loss_dict = {f'val/{key}': value for key, value in norm_loss_dict.items()} # named like train/<key>
+            norm_loss_dict['loss_val_norm'] = norm_loss.detach().item()
+            self.log_dict(norm_loss_dict, batch_size=self.batch_size, sync_dist=True)
             
         def on_load_checkpoint(self, checkpoint: dict) -> None:
             """
@@ -904,8 +927,8 @@ def main():
     )
     modelcheckpoint_callback_best_val_save = ModelCheckpoint(
         dirpath=args.log_dir, 
-        filename="model_best_val_ckpt-{epoch}-{step}-{loss_val:.2f}", 
-        monitor="loss_val", 
+        filename="model_best_val_ckpt-{epoch}-{step}-{loss_val_norm:.3f}",
+        monitor="loss_val_norm", # loss_val sums variables in different units
         save_top_k=3, 
         mode='min', 
         save_on_train_epoch_end=False
