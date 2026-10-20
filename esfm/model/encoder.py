@@ -51,6 +51,7 @@ SURF_VARS = {'lsm': 0, 'z': 1, 'slt': 2, '2t': 3, '10u': 4, '10v': 5,
              'alhfl_s': 46, 'ashfl_s': 47, 'asob_s': 48, 'athb_s': 49, 'tp_cosmo': 50, 'tcwv': 51,
              'w_snow_cosmo': 52, 'z_cosmo': 53, 'hsurf': 54, 'p0fl': 55, 'ts': 56,
              'tws': 57, 'tws_gou': 58, 'tws_itsg': 59, 'tws_jpl': 60,
+             'tp_6hr_log': 61, 'r_6hr_log': 62, 'swvl_1': 63, 'swvl_2': 64, 'swvl_3': 65,
              '<N/A>': NUM_MAX_SURF_VARS - 1}
              
 def get_indices(variables, variables_registry):
