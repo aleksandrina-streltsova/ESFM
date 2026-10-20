@@ -64,7 +64,7 @@ if args.load_aurora_pretrain_weights and args.load_custom_pretrain_weights_str i
 wandb_key = os.getenv("WANDB_KEY")
 if is_rank0:  # Only attempt login on rank 0
     if wandb_key:
-        wandb.login(key=wandb_key)
+        os.environ["WANDB_API_KEY"] = wandb_key # read by wandb.init; wandb.login(key=...) rejects new 86-char keys in older wandb (0.19.8 in the container)
     else:
         if args.wnb_mode != 'disabled':
             print(f'WANDB_KEY is not set. Please set WANDB_KEY to use wandb. not logging to WANDB.')
