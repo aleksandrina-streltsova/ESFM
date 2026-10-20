@@ -267,7 +267,7 @@ def load_data(yaml_path, datasets_type, yaml_masking_path):
             pin_memory=True,  
             persistent_workers=True,
             collate_fn=collate_fn_train,
-            prefetch_factor=4,
+            prefetch_factor=args.prefetch_factor,
         )
         dataloader_val = DataLoader(
             dataset_val[0],
