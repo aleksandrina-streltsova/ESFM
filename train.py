@@ -530,6 +530,7 @@ def main():
             
         def on_train_epoch_start(self):
             """Update epoch for dataloader shuffling at the start of each epoch"""
+            self.last_batch_end_time = None # the first batch's wait would include validation and the epoch start
             # Update epoch for StatefulMultiDatasetLoader2 to ensure different shuffling each epoch
             if hasattr(self.trainer, 'train_dataloader') and self.trainer.train_dataloader is not None:
                 dataloader = self.trainer.train_dataloader
@@ -537,6 +538,16 @@ def main():
                     dataloader.set_epoch(self.current_epoch)
                     if self.trainer.is_global_zero:
                         logging.info(f"Set dataloader epoch to {self.current_epoch} for shuffling")
+
+        def on_train_batch_start(self, batch, batch_idx):
+            """Log per rank the time between the end of the previous step and this one, i.e. waiting for the batch"""
+            if self.last_batch_end_time is not None:
+                wait = torch.tensor(time.perf_counter() - self.last_batch_end_time, device=self.device)
+                waits = self.all_gather(wait).reshape(-1).tolist() # ranks already wait for each other at FSDP's all-gather in the forward, so this adds no delay
+                self.log_dict({f'time/data_wait_s/rank{r}': w for r, w in enumerate(waits)}, rank_zero_only=True)
+
+        def on_train_batch_end(self, outputs, batch, batch_idx):
+            self.last_batch_end_time = time.perf_counter() # runs after the callbacks, so checkpoint saving isn't counted as waiting
 
         def configure_optimizers(self):
             optimizer = torch.optim.AdamW(
