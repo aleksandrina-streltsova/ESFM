@@ -28,7 +28,7 @@ export PYTHONHASHSEED=42
 export TORCH_NCCL_HEARTBEAT_TIMEOUT_SEC=6000
 
 nvidia-smi -L                       # should list 4 GH200 GPUs
-nproc                               # CPU cores this shell may use; should be well above 4
+env -u OMP_NUM_THREADS nproc        # CPU cores this shell may use; should be well above 4 (nproc reports OMP_NUM_THREADS if set)
 echo "WANDB_KEY ${WANDB_KEY:+is set}"  # without "is set", train.py won't log to W&B
 which torchrun                      # should be the container's, not ~/miniconda3/...
 torchrun --standalone --nproc_per_node=4 train.py \

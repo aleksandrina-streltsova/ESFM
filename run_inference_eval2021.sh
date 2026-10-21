@@ -44,7 +44,7 @@ export HF_HOME="/users/$USER/.cache/huggingface"
 export HF_HUB_OFFLINE=1   # use the cached Aurora weights, compute nodes may have no internet
 
 nvidia-smi -L                       # should list 4 GH200 GPUs
-nproc                               # CPU cores this shell may use; should be well above 4
+env -u OMP_NUM_THREADS nproc        # CPU cores this shell may use; should be well above 4 (nproc reports OMP_NUM_THREADS if set)
 which torchrun                      # should be the container's, not ~/miniconda3/...
 ls -d $HF_HOME/hub/models--microsoft--aurora  # needed for auroraS_pretrained only
 set -o pipefail                     # the exit status of torchrun, not of tee, decides whether the pkl files are deleted
