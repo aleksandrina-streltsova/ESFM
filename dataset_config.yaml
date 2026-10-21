@@ -785,16 +785,16 @@ era5_newvars_22to25:
         }
 
 
-era5_hydro_log_24h:
+era5_hydro_log_24h: &era5_hydro_log_24h
     class: WeatherBench2Raw
     batch_size: 1
     co2_path: '/capstor/store/cscs/swissai/ab016/climate_forcings/global_annual_CO2.csv'
     train_time_start: "1979-01-01T00:00:00.000000"
     train_time_end: "2017-12-31T23:59:59.999999"
-    step_time_train: 3
+    step_time_train: 6
     val_time_start: "2018-01-01T00:00:00.000000"
     val_time_end: "2018-12-31T23:59:59.999999"
-    step_time_val: 3
+    step_time_val: 6
     conf:
         path: 'swissai/weatherbench/weatherbench2_original'
         str_task: forecast
@@ -817,6 +817,17 @@ era5_hydro_log_24h:
             'swvl_2' : '/capstor/store/cscs/swissai/weatherbench/weatherbench2_additionalvariables.zarr',
             'swvl_3' : '/capstor/store/cscs/swissai/weatherbench/weatherbench2_additionalvariables.zarr',
         }
+
+era5_hydro_log_24h_79to82: # era5_hydro_log_24h trained on 1979-1982 (1459 steps per epoch on 4 GPUs at step_time_train 6)
+    <<: *era5_hydro_log_24h
+    train_time_end: "1982-12-31T23:59:59.999999"
+
+era5_hydro_log_24h_test: # era5_hydro_log_24h on 1 year (730 steps on 4 GPUs) and 1 month of validation, for test runs
+    <<: *era5_hydro_log_24h
+    train_time_start: "2017-01-01T00:00:00.000000"
+    train_time_end: "2017-12-31T23:59:59.999999"
+    val_time_start: "2018-01-01T00:00:00.000000"
+    val_time_end: "2018-01-31T23:59:59.999999"
 
 
 modis_14to20_tq:
