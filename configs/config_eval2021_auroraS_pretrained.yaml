@@ -1,7 +1,7 @@
 # 2021 evaluation: pretrained Aurora-small (microsoft/aurora aurora-0.25-small-pretrained.ckpt, the start of the
 # AuroraS hydro fine-tune), a 6 h model rolled out 4 steps to 24 h with Aurora's normalisation stats; only the
 # 24 h step is saved. hf_hub_download reads the weights from ~/.cache/huggingface if they are there.
-# Run with: MODEL=auroraS_pretrained sbatch launch_inference_eval2021.sh
+# Run with: bash run_inference_eval2021.sh auroraS_pretrained (inside the container on a GPU node)
 seed: 42
 num_workers: 8
 devices: 4

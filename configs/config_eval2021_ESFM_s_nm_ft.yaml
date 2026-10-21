@@ -1,6 +1,6 @@
 # 2021 evaluation: pretrained ESFM-small (ESFM_s_nm_ft, step 53000, the start of the hydro fine-tune),
 # a 6 h model rolled out 4 steps to 24 h; only the 24 h step is saved.
-# Run with: MODEL=ESFM_s_nm_ft sbatch launch_inference_eval2021.sh
+# Run with: bash run_inference_eval2021.sh ESFM_s_nm_ft (inside the container on a GPU node)
 seed: 42
 num_workers: 8
 devices: 4
