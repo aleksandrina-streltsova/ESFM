@@ -1,6 +1,6 @@
 seed: 42
-num_workers: 4  # increase in case of low GPU utilisation
-epochs: 10
+num_workers: 8  # increase in case of low GPU utilisation
+epochs: 4
 devices: 4      # number of GPUs per node; num_processes = devices x num_nodes
 batch_size: 1   # global batch size defines how often weights are updated; global: batch_size x devices x num_nodes
                 # batch_size is actually set in dataset config
@@ -8,10 +8,11 @@ wnb_entity: "astreltsova-ethz"
 wnb_project: "ESFM_GHM"
 dataset_config_path: "dataset_config.yaml"
 log_dir: /iopsstor/scratch/cscs/astreltsova/checkpoints/esfmS_varagg_era5_hydro_log_24h_lr1e-4_PTESFM_s_nm_ft
+ckpt_every_n_train_steps: 500
 load_aurora_pretrain_weights: false
 load_custom_pretrain_weights_str: /capstor/store/cscs/swissai/ab016/ESFM_related/trained_models/ESFM_s_nm_ft/model_ckpt-step=53000-loss_train=0.07.ckpt
 data_sources:
-  - era5_hydro_log_24h
+  - era5_hydro_log_24h_79to82
 str_architecture_size: small
 learning_rate: 0.0001
 lr_warmup_steps: 1000

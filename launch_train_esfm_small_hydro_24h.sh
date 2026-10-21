@@ -1,20 +1,18 @@
 #!/bin/bash
 #SBATCH --job-name=ESFMs_hydro      # short name for the job
 #SBATCH --nodes=1                   # number of nodes
-#SBATCH --partition=debug
 #SBATCH --ntasks-per-node=1         # run 1 task per node (torchrun spawns 1 process per GPU)
 #SBATCH --gpus-per-node=4           # GPUs per node, must match `devices` in config.yaml
 #SBATCH -c 72                       # CPU cores per task
 #SBATCH --mem=460000                # memory per node
 #SBATCH --exclusive
-#SBATCH --time=01:00:00             # total run time (HH:MM:SS)
+#SBATCH --time=07:00:00             # total run time (HH:MM:SS)
 #SBATCH --account=ab016
 #SBATCH --output=logs/train_esfm_small_hydro_24h_%j.out  # output log file
 
 # ------------------------------------------------------------------------------
 # Environment setup
 # ------------------------------------------------------------------------------
-# WANDB_API_KEY is exported in ~/.bashrc and passed on by sbatch/srun --export=ALL
 export WANDB__SERVICE_WAIT=300
 wandb_dir="/iopsstor/scratch/cscs/$USER/wandb"
 export WANDB_CACHE_DIR="$wandb_dir/cache"
@@ -24,6 +22,7 @@ export WANDB_CONFIG_DIR="$wandb_dir/config"
 export WANDB_DATA_DIR="$wandb_dir/data_dir"
 export OMP_NUM_THREADS=4
 export PYTHONHASHSEED=42
+export PYTHONUNBUFFERED=1 # print() goes to the log file immediately, not in chunks
 ulimit -c 0  # disable core dumps
 ulimit -t unlimited
 export NCCL_CROSS_NIC=1
@@ -53,6 +52,7 @@ workdir="/users/$USER/ESFM"
 export WORKDIR=${WORKDIR:-$workdir}
 tomlpath="/users/$USER/.edf/torchcontainer_clariden.toml"
 
+export CONFIG=${CONFIG:-./config.yaml} # CONFIG=./config_test.yaml for a test run
 # If first run, use a new wnb_id; if resuming, add --resume and set WNB_ID to the wnb_id of the previous run
 export WNB_ID=${WNB_ID:-"ESFMs_hydro_$(date +"%Y-%m-%d--%H-%M-%S")"}
 
@@ -84,7 +84,7 @@ srun --ntasks=$nnodes \
       --rdzv_backend=c10d \
       --rdzv_endpoint=$MASTER_ADDR:$MASTER_PORT \
       train.py \
-        --config ./config.yaml \
+        --config "$CONFIG" \
         --num_nodes $SLURM_JOB_NUM_NODES \
         --wnb_name "ESFMs_hydro_24h/$SLURM_JOB_NUM_NODES" \
         --wnb_id "$WNB_ID" \
