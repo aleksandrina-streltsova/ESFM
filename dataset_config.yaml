@@ -1,4 +1,4 @@
-era5:
+era5: &era5
     class: WeatherBench2Raw
     batch_size: 1
     conf:
@@ -30,7 +30,7 @@ era5_toa:
         resolution: [721, 1440]
         grid_resolution: 0.25
 
-era5_aurora_stats:
+era5_aurora_stats: &era5_aurora_stats
     class: WeatherBench2Raw
     batch_size: 1
     conf:
@@ -828,6 +828,28 @@ era5_hydro_log_24h_test: # era5_hydro_log_24h on 1 year (730 steps on 4 GPUs) an
     train_time_end: "2017-12-31T23:59:59.999999"
     val_time_start: "2018-01-01T00:00:00.000000"
     val_time_end: "2018-01-31T23:59:59.999999"
+
+# 2021 evaluation, a year none of the compared models was trained on. Use with inference --use_val_set_from_config.
+# One start time every 78 h (3 days + 6 h, so starts cycle through 00/06/12/18 UTC): 112 starts from 2021-01-01T00
+# to 2021-12-27T18. The end date keeps the 24 h targets inside weatherbench2_original, which stops at 2021-12-31T23.
+# The same starts in every entry, so 24 h forecasts and 4 x 6 h rollouts share init and valid times.
+era5_hydro_log_24h_eval2021:
+    <<: *era5_hydro_log_24h
+    val_time_start: "2021-01-01T00:00:00.000000"
+    val_time_end: "2021-12-30T23:59:59.999999"
+    step_time_val: 78
+
+era5_eval2021: # input of the 6 h models for the 4-step rollouts
+    <<: *era5
+    val_time_start: "2021-01-01T00:00:00.000000"
+    val_time_end: "2021-12-30T23:59:59.999999"
+    step_time_val: 78
+
+era5_aurora_stats_eval2021: # same with Aurora's normalisation stats, for the pretrained Aurora weights
+    <<: *era5_aurora_stats
+    val_time_start: "2021-01-01T00:00:00.000000"
+    val_time_end: "2021-12-30T23:59:59.999999"
+    step_time_val: 78
 
 
 modis_14to20_tq:
