@@ -13,3 +13,4 @@ pip install timm  # model code (esfm.model.util); on a CPU-only torch use the ma
 # The pins keep the requirements of lightning 2.5.1 (packaging<25, fsspec<2026), which PhysMetrics' dependencies would otherwise upgrade.
 git clone https://github.com/Emmakast/PhysMetrics.Weather.git /users/$USER/PhysMetrics.Weather
 pip install -e /users/$USER/PhysMetrics.Weather "packaging<25" "fsspec[http]<2026" "gcsfs<2026"
+pip install pytest  # tests of PhysMetrics.Weather
