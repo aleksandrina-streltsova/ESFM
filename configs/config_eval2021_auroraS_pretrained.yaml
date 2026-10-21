@@ -1,0 +1,28 @@
+# 2021 evaluation: pretrained Aurora-small (microsoft/aurora aurora-0.25-small-pretrained.ckpt, the start of the
+# AuroraS hydro fine-tune), a 6 h model rolled out 4 steps to 24 h with Aurora's normalisation stats; only the
+# 24 h step is saved. hf_hub_download reads the weights from ~/.cache/huggingface if they are there.
+# Run with: MODEL=auroraS_pretrained sbatch launch_inference_eval2021.sh
+seed: 42
+num_workers: 8
+devices: 4
+dataset_config_path: dataset_config.yaml
+data_sources:                     # model vocabulary
+  - era5_aurora_stats
+test_data_sources:
+  - era5_aurora_stats_eval2021
+log_dir: /iopsstor/scratch/cscs/astreltsova/eval_hydro_2021/auroraS_pretrained
+ckpt_name: hf_hub_download
+load_aurora_pretrain_weights: false
+strict_loading: true
+# plain Aurora architecture
+str_architecture_size: small
+num_ensemble: 1
+num_max_ensembles: 1000
+stabilise_level_agg: false
+variable_aggregation: false
+axial_attention: false
+add_qk_norm_to_swin3d: false
+use_resolution_specific_patch_tokenizers: false
+disable_flashattention: false
+absolute_time_embedding_in_minutes: false
+add_token_pos_embedding_in_decoder: false

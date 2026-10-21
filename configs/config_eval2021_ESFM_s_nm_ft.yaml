@@ -1,0 +1,26 @@
+# 2021 evaluation: pretrained ESFM-small (ESFM_s_nm_ft, step 53000, the start of the hydro fine-tune),
+# a 6 h model rolled out 4 steps to 24 h; only the 24 h step is saved.
+# Run with: MODEL=ESFM_s_nm_ft sbatch launch_inference_eval2021.sh
+seed: 42
+num_workers: 8
+devices: 4
+dataset_config_path: dataset_config.yaml
+data_sources:                     # model vocabulary, as in training
+  - era5
+test_data_sources:
+  - era5_eval2021
+log_dir: /iopsstor/scratch/cscs/astreltsova/eval_hydro_2021/ESFM_s_nm_ft
+ckpt_name: /capstor/store/cscs/swissai/ab016/ESFM_related/trained_models/ESFM_s_nm_ft/model_ckpt-step=53000-loss_train=0.07.ckpt
+load_aurora_pretrain_weights: false
+# architecture as in training (config_ESFM_s_nm_ft.yaml next to the checkpoint)
+str_architecture_size: small
+num_ensemble: 1
+num_max_ensembles: 1000
+stabilise_level_agg: true
+variable_aggregation: true
+axial_attention: true
+add_qk_norm_to_swin3d: true
+use_resolution_specific_patch_tokenizers: false
+disable_flashattention: false
+absolute_time_embedding_in_minutes: false
+add_token_pos_embedding_in_decoder: true    # unlike the hydro fine-tune, which ran without it

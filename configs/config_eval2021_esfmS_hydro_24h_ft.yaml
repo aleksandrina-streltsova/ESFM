@@ -1,0 +1,25 @@
+# 2021 evaluation: ESFM-small hydro 24 h fine-tune of 2026-10-20 (best val, epoch 3), direct 24 h forecasts.
+# Run with: MODEL=esfmS_hydro_24h_ft sbatch launch_inference_eval2021.sh
+seed: 42
+num_workers: 8
+devices: 4
+dataset_config_path: dataset_config.yaml
+data_sources:                     # model vocabulary, as in training
+  - era5_hydro_log_24h_79to82
+test_data_sources:
+  - era5_hydro_log_24h_eval2021
+log_dir: /iopsstor/scratch/cscs/astreltsova/eval_hydro_2021/esfmS_hydro_24h_ft
+ckpt_name: /iopsstor/scratch/cscs/astreltsova/checkpoints/esfmS_varagg_era5_hydro_log_24h_lr1e-4_PTESFM_s_nm_ft/model_best_val_ckpt-epoch=3-step=5836-loss_val_norm=0.094.ckpt
+load_aurora_pretrain_weights: false
+# architecture as in training (config.yaml of the run)
+str_architecture_size: small
+num_ensemble: 1
+num_max_ensembles: 1000
+stabilise_level_agg: true
+variable_aggregation: true
+axial_attention: true
+add_qk_norm_to_swin3d: true
+use_resolution_specific_patch_tokenizers: false
+disable_flashattention: false
+absolute_time_embedding_in_minutes: false
+add_token_pos_embedding_in_decoder: false
