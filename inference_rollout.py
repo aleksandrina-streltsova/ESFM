@@ -34,8 +34,16 @@ custom_parser.add_argument('--NUM_ROLLOUT_STEPS', type=int, default=56)
 custom_parser.add_argument('--surf_vars_save', nargs='+', default=None)
 custom_parser.add_argument('--atmos_vars_save', nargs='+', default=None)
 custom_parser.add_argument('--levels_save', nargs='+', type=int, default=None)
+custom_parser.add_argument('--lead_times_save', nargs='+', type=int, default=None,
+                           help="Lead times in hours to save, e.g. 24 for the last of 4 6-hourly steps [default: all steps]")
 custom_parser.add_argument('--use_inds_subset', action=argparse.BooleanOptionalAction, default=True)
 custom_parser.add_argument('--test_time_intervals', type=str, default='default')
+custom_parser.add_argument(
+    "--use_val_set_from_config",
+    action=argparse.BooleanOptionalAction,
+    default=False,
+    help="Use the validation set timestamps defined in the dataset config (val_time_start/val_time_end/step_time_val) instead of the fixed 2023/2024 test set. [default: False]",
+)
 custom_parser.add_argument(
         "--save_only_masked_predictions_during_testing",
         action=argparse.BooleanOptionalAction,
@@ -48,8 +56,10 @@ NUM_ROLLOUT_STEPS = custom_args.NUM_ROLLOUT_STEPS
 surf_vars_save = custom_args.surf_vars_save
 atmos_vars_save = custom_args.atmos_vars_save
 levels_save = custom_args.levels_save
+lead_times_save = custom_args.lead_times_save
 use_inds_subset = custom_args.use_inds_subset
 test_time_intervals = custom_args.test_time_intervals
+use_val_set_from_config = custom_args.use_val_set_from_config
 save_only_masked_predictions_during_testing = custom_args.save_only_masked_predictions_during_testing
 # Reconstruct sys.argv without custom arguments for the main parser
 sys.argv = [sys.argv[0]] + remaining
@@ -78,11 +88,15 @@ if is_rank0:
     print(f'surf_vars_save: {surf_vars_save}')
     print(f'atmos_vars_save: {atmos_vars_save}')
     print(f'levels_save: {levels_save}')
+    print(f'lead_times_save: {lead_times_save}')
+    print(f'use_val_set_from_config: {use_val_set_from_config}')
     print(f'use_inds_subset: {use_inds_subset}')
     print(f'test_time_intervals: {test_time_intervals}')
 
 DATA_PATH_PREFIX = os.getenv("ESFM_DATA_PATH_PREFIX", "/capstor/store/cscs/").rstrip("/") + "/"
-if test_time_intervals == 'default':
+if use_val_set_from_config:
+    start_end_time_intervals = []  # inds are populated per-dataset inside load_data from val_time_start/val_time_end
+elif test_time_intervals == 'default':
     start_end_time_intervals = [
         (datetime(2023, 1, 2, 0, 0, 0), datetime(2023, 1, 8, 23, 0, 0)),
         (datetime(2023, 4, 2, 0, 0, 0), datetime(2023, 4, 8, 23, 0, 0)),
@@ -98,7 +112,9 @@ else:
     raise ValueError(f"Unknown test_time_intervals: {test_time_intervals}. Choose 'default' or '2022'.")
 
 # Build tmp_pred_fname based on test_time_intervals and use_inds_subset
-if test_time_intervals == 'default':
+if use_val_set_from_config:
+    tmp_pred_fname_base = "tmp_predictions_rollout_val_set"
+elif test_time_intervals == 'default':
     tmp_pred_fname_base = "tmp_predictions_rollout"
 else:
     tmp_pred_fname_base = f"tmp_predictions_rollout_{test_time_intervals}"
@@ -117,6 +133,14 @@ def get_device(use_gpu):
 
 
 _TIME_FMT = "%Y-%m-%dT%H:%M:%S.%f"           # keeps the format in one place
+
+def _parse_time(s):
+    """Parse an ISO-8601 datetime string with or without microseconds."""
+    try:
+        return datetime.strptime(s, _TIME_FMT)
+    except ValueError:
+        return datetime.strptime(s, "%Y-%m-%dT%H:%M:%S")
+
 def _make_batch(batch_dict, *, normalize_target: bool = True):
     """
     Convert the default-collated dictionary into (batch_x, batch_y)
@@ -210,7 +234,17 @@ def load_data(yaml_path, datasets_type):
                 conf_infer['path'] = os.path.join(DATA_PATH_PREFIX, conf_infer['path'])
             
             if dataset_type.startswith('era5') or dataset_type.startswith('station') or dataset_type.startswith('modis') or dataset_type.startswith('cosmo'):
-                conf_infer['inds'] = inds
+                if use_val_set_from_config:
+                    start_time_val = _parse_time(yml_file[dataset_type]['val_time_start'])
+                    end_time_val = _parse_time(yml_file[dataset_type]['val_time_end'])
+                    step_val = yml_file[dataset_type].get('step_time_val', 1)
+                    inds_val_ = [np.datetime64(start_time_val + timedelta(hours=i)) for i in range(0, int((end_time_val - start_time_val).total_seconds() // 3600) + 1, step_val)]
+                    if use_inds_subset:
+                        inds_val_ = validation_utils.get_every_nth_index(inds_val_, n=6, shift_n_every_m=3)
+                    conf_infer['inds'] = inds_val_
+                    logging.info(f"[{dataset_type}] Using val set from config: {start_time_val} -> {end_time_val} ({len(inds_val_)} timesteps)")
+                else:
+                    conf_infer['inds'] = inds
             else:
                 conf_infer['start_idx'] = yml_file[dataset_type]['start_val']
                 conf_infer['end_idx'] = yml_file[dataset_type]['end_val']
@@ -536,6 +570,10 @@ def main():
                         pickle.dump(metadata, f)
                     metadata_saved = True
                 
+                if lead_times_save is not None and curr_lead_time_hours not in lead_times_save:
+                    logging.info(f"Batch {batch_idx}: Not saving rollout step {step_idx + 1}/{NUM_ROLLOUT_STEPS} (lead_time={curr_lead_time_hours}h)")
+                    continue
+
                 # Save this step's predictions to a separate file
                 step_data = {'lead_time': curr_lead_time_hours}
                 
@@ -585,17 +623,20 @@ def main():
             if self.levels_save is not None:
                 predictions['level'] = np.array(self.levels_save)
             
-            # Build lead_time array
-            predictions['lead_time'] = np.arange(1, NUM_ROLLOUT_STEPS + 1) * leadtime_hours
+            # Build lead_time array from the saved steps
+            saved_steps = [i for i in range(NUM_ROLLOUT_STEPS) if lead_times_save is None or (i + 1) * leadtime_hours in lead_times_save]
+            if not saved_steps:
+                raise ValueError(f"None of lead_times_save {lead_times_save} is a rollout lead time ({leadtime_hours} h x 1..{NUM_ROLLOUT_STEPS})")
+            predictions['lead_time'] = (np.array(saved_steps) + 1) * leadtime_hours
             
-            # Load all steps and stack them
-            for step_idx in range(NUM_ROLLOUT_STEPS):
+            # Load all saved steps and stack them
+            for step_idx in saved_steps:
                 step_file = os.path.join(step_dir, f'step_{step_idx:03d}.pkl')
                 with open(step_file, 'rb') as f:
                     step_data = pickle.load(f)
                 
-                # Initialize arrays on first step
-                if step_idx == 0:
+                # Initialize arrays on first saved step
+                if step_idx == saved_steps[0]:
                     for var_name, var_data in step_data.items():
                         if var_name != 'lead_time':
                             if var_data.ndim == 3:  # Surface var: [bs, ens, lat, lon]
@@ -680,7 +721,7 @@ def main():
             shutil.rmtree(step_dir)
             logging.info(f"Batch {batch_idx}: Cleanup complete, removed {step_dir}")
             
-            logging.info(f"Batch {batch_idx}: Completed rollout and saved all {NUM_ROLLOUT_STEPS} lead times")
+            logging.info(f"Batch {batch_idx}: Completed rollout and saved lead times {predictions['lead_time'].tolist()} h")
 
             return final_predictions
 
