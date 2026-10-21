@@ -32,9 +32,9 @@ HYDRO_MODELS="esfmS_hydro_24h_ft auroraS_hydro_24h_ft"
 
 cd /users/$USER/ESFM
 export PATH="/users/$USER/miniconda3/envs/esfm/bin:$PATH"
-export OMP_NUM_THREADS=1            # the parallelism comes from the worker processes
 which python                        # should be ~/miniconda3/envs/esfm/bin/python
 nproc                               # CPU cores this shell may use; should be well above the workers started
+export OMP_NUM_THREADS=1            # the parallelism comes from the worker processes; set after nproc, which reports it
 mkdir -p "$OUT/logs"
 
 present=()
