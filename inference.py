@@ -2,6 +2,7 @@
 # Authors: see CONTRIBUTORS.md
 # Licensed under the MIT License. See the LICENSE file in the repository root.
 
+import inspect
 import logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 import os
@@ -623,12 +624,9 @@ def main():
     if args.vars_mask_during_testing is None and args.plevs_mask_during_testing is None and args.mask_regions_during_testing is None:
         # Setup model and trainer
         model_lightning = InferenceModule(model)
-        # Check PyTorch version for weights_only parameter support (available in PyTorch 2.6+)
-        torch_version = tuple(int(x) for x in torch.__version__.split('.')[:2])
-        if torch_version >= (2, 6):
-            trainer.test(model_lightning, dataloader_val, ckpt_path=ckpt_path, weights_only=False)
-        else:
-            trainer.test(model_lightning, dataloader_val, ckpt_path=ckpt_path)
+        # Lightning >= 2.6 takes weights_only (and would load with weights_only=True on torch >= 2.6); older versions have no such argument and load full checkpoints
+        test_kwargs = {'weights_only': False} if 'weights_only' in inspect.signature(trainer.test).parameters else {}
+        trainer.test(model_lightning, dataloader_val, ckpt_path=ckpt_path, **test_kwargs)
         logging.info(f"Rank {myrank}: Inference completed.")
         # Synchronize before merge - ensure all ranks finish writing predictions
         if args.devices > 1:
