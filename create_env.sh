@@ -7,3 +7,5 @@ pip3 install torch torchvision torchaudio --index-url https://download.pytorch.o
 pip install cmocean cartopy scores esgf-pyclient huggingface-hub einops
 pip install --quiet "lightning==2.5.1"
 conda install conda-forge::tmux
+pip install timm  # model code (esfm.model.util); on a CPU-only torch use the matching CPU torchvision wheel:
+# pip install --force-reinstall --no-deps torchvision==0.29.1 --index-url https://download.pytorch.org/whl/cpu
