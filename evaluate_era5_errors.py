@@ -22,7 +22,8 @@ Output: long-format CSV with columns model, init_time, lead_time_h, variable, le
 """
 import argparse
 import glob
-from concurrent.futures import ThreadPoolExecutor
+import multiprocessing
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 
 import numpy as np
 import pandas as pd
@@ -117,15 +118,23 @@ def errors_for_sample(stores, preds, init_time, lead_time):
     return rows
 
 
+def errors_for_init(patterns, init_time, leads):
+    """All error rows of one start time; opens the stores itself, so it can run in a worker process."""
+    preds = {name: open_predictions(pattern) for name, pattern in patterns.items()}
+    stores = {k: xr.open_zarr(path, chunks=None) for k, path in STORES.items()}
+    return [row for lead_time in leads for row in errors_for_sample(stores, preds, init_time, lead_time)]
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--pred", action="append", required=True, help="NAME=ZARR_OR_GLOB, once per model")
     parser.add_argument("--out", required=True, help="CSV file for the per-sample errors")
     parser.add_argument("--max_inits", type=int, default=None, help="Evaluate only the first N common start times (tests)")
+    parser.add_argument("--workers", type=int, default=1, help="Start times evaluated in parallel processes")
     args = parser.parse_args()
 
-    preds = dict(p.split("=", 1) for p in args.pred)
-    preds = {name: open_predictions(pattern) for name, pattern in preds.items()}
+    patterns = dict(p.split("=", 1) for p in args.pred)
+    preds = {name: open_predictions(pattern) for name, pattern in patterns.items()}
     inits = sorted(set.intersection(*[set(ds.init_time.values) for ds in preds.values()]))
     leads = sorted(set.intersection(*[set(ds.lead_time.values) for ds in preds.values()]))
     for name, ds in preds.items():
@@ -133,12 +142,12 @@ def main():
     inits = inits[:args.max_inits]
     print(f"Evaluating {len(inits)} common start times x {len(leads)} common lead times")
 
-    stores = {k: xr.open_zarr(path, chunks=None) for k, path in STORES.items()}
     rows = []
-    for i, init_time in enumerate(inits):
-        for lead_time in leads:
-            rows += errors_for_sample(stores, preds, init_time, lead_time)
-        print(f"start time {i + 1}/{len(inits)}: {pd.Timestamp(init_time)}", flush=True)
+    # spawn, not fork: this process has open zarr stores, whose async I/O thread a forked child can deadlock on
+    with ProcessPoolExecutor(args.workers, mp_context=multiprocessing.get_context("spawn")) as pool:
+        for i, (init_time, init_rows) in enumerate(zip(inits, pool.map(errors_for_init, [patterns] * len(inits), inits, [leads] * len(inits)))):
+            rows += init_rows
+            print(f"start time {i + 1}/{len(inits)}: {pd.Timestamp(init_time)}", flush=True)
 
     df = pd.DataFrame(rows)
     df.to_csv(args.out, index=False)
