@@ -6,7 +6,7 @@
 #   bash run_inference_eval2021.sh esfmS_hydro_24h_ft   # ESFM-small hydro fine-tune, direct 24 h forecasts
 #   bash run_inference_eval2021.sh ESFM_s_nm_ft         # pretrained ESFM-small, 4 x 6 h rollout, 24 h saved
 #   bash run_inference_eval2021.sh auroraS_pretrained   # pretrained Aurora-small, 4 x 6 h rollout, 24 h saved
-# The AuroraS hydro fine-tune runs in the old code: ../auroraS_hydro_24h/code/launch_inference_auroraS_hydro_eval2021.sh
+# The AuroraS hydro fine-tune runs in the old code: cd ../auroraS_hydro_24h/code && bash run_inference_auroraS_hydro_eval2021.sh
 #
 # Open a second shell in a running job
 #   srun --jobid=<JOBID> --overlap --container-writable --environment=/users/$USER/.edf/torchcontainer_clariden.toml --pty bash
