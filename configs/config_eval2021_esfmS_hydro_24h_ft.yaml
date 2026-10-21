@@ -1,5 +1,5 @@
 # 2021 evaluation: ESFM-small hydro 24 h fine-tune of 2026-10-20 (best val, epoch 3), direct 24 h forecasts.
-# Run with: MODEL=esfmS_hydro_24h_ft sbatch launch_inference_eval2021.sh
+# Run with: bash run_inference_eval2021.sh esfmS_hydro_24h_ft (inside the container on a GPU node)
 seed: 42
 num_workers: 8
 devices: 4
